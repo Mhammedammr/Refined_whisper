@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription and Refinement</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-top: 10px;
+        }
+        .result {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Audio File</h1>
+        <form id="uploadForm">
+            <input type="file" name="audio" accept=".mp3,.wav,.m4a" required>
+            <button type="submit">Upload and Process</button>
+        </form>
+
+        <div class="result">
+            <h2>Whisper medium output:</h2>
+            <textarea id="rawText" readonly></textarea>
+            <h2>deepseek-v3 refining output:</h2>
+            <textarea id="refinedText" readonly></textarea>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const audioFile = document.querySelector('input[name="audio"]').files[0];
+            formData.append("audio", audioFile);
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    document.getElementById("rawText").value = data.raw_text;
+                    document.getElementById("refinedText").value = data.refined_text;
+                }
+            } catch (error) {
+                alert("An error occurred: " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
