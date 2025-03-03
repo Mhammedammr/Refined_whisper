@@ -34,10 +34,7 @@ def parse_refined_text(input_text):
     
     # Clean up the JSON string
     json_text = json_text.strip()
-    
-    # Debugging: Print the JSON text for inspection
-    print("JSON Text to Parse:")
-    print(json_text)
+
     
     try:
         # Parse the JSON data

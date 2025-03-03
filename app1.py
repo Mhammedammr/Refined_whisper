@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template
-from src.LLM import llm, speech_reco
+from models import llm, speech_reco
 import os
 import uuid  # Import uuid for generating unique filenames
 from src.utlis import parse_refined_text
