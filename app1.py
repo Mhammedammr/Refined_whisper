@@ -1,96 +1,85 @@
 from flask import Flask, request, jsonify, render_template
-from models import llm, speech_reco
-import os
-import uuid  # Import uuid for generating unique filenames
-from src.utlis import parse_refined_text
 import time
+import os
+
+from config import Config
+from services.speech_service import SpeechService
+from services.llm_service import LLMService
+from services.file_service import FileService
+from services.text_parser import parse_refined_text
 
 app = Flask(__name__)
-
-# Define the upload folder
-UPLOAD_FOLDER = "uploads"
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-
-# Function to generate a unique filename
-def generate_unique_filename(filename):
-    # Generate a unique filename using UUID
-    unique_id = uuid.uuid4().hex
-    _, ext = os.path.splitext(filename)  # Split filename and extension
-    return f"{unique_id}{ext}"  # Combine unique ID and original extension
-
-
-# Function to clean up the uploads directory
-def cleanup_uploads(file_path):
-    try:
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"File removed: {file_path}")
-        else:
-            print(f"File not found: {file_path}")
-    except Exception as e:
-        print(f"Error removing file: {str(e)}")
-
+app.config.from_object(Config)
 
 @app.route("/")
 def index():
-    # Render the HTML frontend
+    """Render the application frontend."""
     return render_template("index.html")
 
 @app.route("/upload", methods=["POST"])
-def upload_audio():
+def upload():
+    """Handle file uploads and processing."""
     # Check if a file is uploaded
     if "audio" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-
+        return jsonify({"error": "No audio file uploaded"}), 400
+    
     audio_file = request.files["audio"]
-
-    # Validate file type and size
+    input_text = request.form.get('text', '')
+    
+    # Validate file
     if audio_file.filename == "":
         return jsonify({"error": "No selected file"}), 400
-
-    # Generate a unique filename to avoid conflicts
-    unique_filename = generate_unique_filename(audio_file.filename)
-    file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
-
+    
     # Save the uploaded file
     try:
-        audio_file.save(file_path)
-        print(f"File saved to: {file_path}")  # Debugging
+        file_path = FileService.save_file(audio_file, app.config["UPLOAD_FOLDER"])
     except Exception as e:
-        return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
-
-    # Transcribe the audio
-    try:
-        start_SR = time.time()
-        raw_text = speech_reco(file_path)
-        end_SR = time.time()
-        print("Time cost of whisper: ", end_SR - start_SR)
-    except Exception as e:
-        return jsonify({"error": f"Speech recognition failed: {str(e)}"}), 500
-
-    # Parse the refined text into structured data
-    try:
-        start_llm = time.time()
-        refined_text = llm(raw_text)
-        end_llm = time.time()
-        parsed_text, json_data, reasoning = parse_refined_text(refined_text)
-        print("Time cost of deepseek-V3: ", end_llm - start_llm)
-    except Exception as e:
-        return jsonify({"error": f"Text parsing failed: {str(e)}"}), 500
-
-    # Clean up the uploads directory
-    cleanup_uploads(file_path)
+        return jsonify({"error": str(e)}), 500
     
-    # Return the results
-    return jsonify({
-        "raw_text": raw_text,
-        "refined_text": parsed_text,
-        "json_data": json_data,
-        "reasoning": reasoning
-    })
+    try:
+        # Process the uploaded file
+        start_time = time.time()
+        
+        # Step 1: Transcribe the audio
+        raw_text = SpeechService.transcribe_audio(
+            file_path, 
+            app.config["GROQ_API_KEY"]
+        )
+        
+        # Step 2: Process the HTML input text
+        json_data = LLMService.process_html_data(
+            input_text,
+            app.config["FIREWORKS_API_KEY"]
+        )
+        
+        # Step 3: Process the transcription with LLM
+        refined_text = LLMService.process_voice_data(
+            raw_text, 
+            json_data,
+            app.config["FIREWORKS_API_KEY"]
+        )
+        
+        # Step 4: Parse the refined text
+        parsed_text, json_data, reasoning = parse_refined_text(refined_text)
+        
+        # Track processing time
+        processing_time = time.time() - start_time
+        
+        # Clean up the temporary file
+        FileService.cleanup_file(file_path)
+        
+        # Return the results
+        return jsonify({
+            "raw_text": raw_text,
+            "refined_text": parsed_text,
+            "json_data": json_data,
+            "reasoning": reasoning,
+        })
+    
+    except Exception as e:
+        # Clean up the temporary file in case of error
+        FileService.cleanup_file(file_path)
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=8586)
