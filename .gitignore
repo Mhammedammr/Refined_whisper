@@ -1,2 +1,8 @@
-myenv/
+venv/
 .env
+*.txt
+*.xlsx
+*.csv
+t.py
+test.py
+*.log

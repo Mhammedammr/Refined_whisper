@@ -1,5 +1,3 @@
-from models import llm
-
 text = """
 
 
@@ -460,31 +458,41 @@ Sys.Application.add_init(function() {
 </html>
 
 """
-from . import models
-file_path = "waves/wave2.m4a"
-# raw_text = LLM.speech_reco(audio_file_path=file_path)
+input_text = """
+            Patient is an independent adult living alone, with no unintentional weight changes
+            and stable BMI. Skin condition is normal. Vitals within normal limits (Temp: 36.8°C axillary).
+            Alert, oriented, no cognitive issues. No pain reported, no impact on sleep or daily activities,
+            and no need for pain interventions. Gait and transfers are normal, no fall history,
+            and no ambulatory aids required. Fall risk score is zero, but preventative measures
+            (non-slip footwear, adequate lighting, bed positioning) are in place. No acute concerns; patient remains stable.
+            Recommend regular follow-up to monitor functional status, pain, and fall risk.
+            """
 
-json_data = models.llm(task="text", raw_text=text)
-print(json_data)
-refined_text = models.llm(task="voice", raw_text="""The patient is a 32-year-old married male with a 10-year smoking history
-                        who does not consume alcohol or caffeine. He has a family history of diabetes in his mother and an
-                        anxiety disorder in his sister, with no known significant diseases in his father, grandparents,
-                        or children. The patient has a medical history of chronic Factor VIII deficiency (hemophilia A), asthma,
-                        and a mild milk allergy. His current medications include codeine, morphine, and Factor VIII replacement
-                        therapy. He presented to the hospital with a chief complaint of severe knee pain, rated 8/10 on the pain
-                        scale, which has persisted for several weeks, along with difficulty sleeping and trouble performing physical
-                        activities such as walking and climbing stairs. His vital signs include a blood pressure of 128/76 mmHg, heart rate
-                        of 88 bpm, respiratory rate of 18 breaths/min, temperature of 98.6°F (37°C), and oxygen saturation of 96% on room air.
-                        He stands 5’10” (178 cm) tall, weighs 185 lbs (84 kg), and has a BMI of 26.6, placing him in the overweight category.
-                        A functional screen revealed significant difficulty with ambulation due to knee pain, requiring a cane for short
-                        distances and assistance for longer walks. He reports poor sleep quality, averaging 4-5 hours per night, and struggles 
-                       with instrumental activities of daily living such as grocery shopping and household chores due to limited mobility. 
-                       The patient has a history of leaving against medical advice (AMA) but denies any sexual dysfunction. His asthma is
-                        currently stable, with no recent exacerbations. The assessment includes chronic Factor VIII deficiency with suspected
-                        hemarthrosis in the knee, contributing to severe pain and functional limitations, overweight status with potential 
-                       impact on joint health, chronic pain management requiring reassessment of long-term opioid use, and stable asthma. 
-                       The plan involves further evaluation of the knee with imaging, optimization of pain management, monitoring and adjustment
-                        of Factor VIII therapy, smoking cessation counseling, nutritional counseling for weight management, sleep hygiene education,
-                        and close follow-up to ensure adherence to treatment and prevent further complications.""", html_text=json_data)
+from services.llm_service import LLMService
+from services.text_parser import parse_refined_text
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
+
+# Step 1: Process the HTML input text
+json_data = LLMService.process_html_data(
+    text,
+    FIREWORKS_API_KEY
+)
+
+# Step 2: Process the transcription with LLM
+refined_text = LLMService.process_text_data(
+    input_text, 
+    json_data,
+    FIREWORKS_API_KEY
+)
+
+# Step 4: Parse the refined text
+json_data, reasoning = parse_refined_text(refined_text)
 
 print(refined_text)
+
+print(json_data, reasoning)

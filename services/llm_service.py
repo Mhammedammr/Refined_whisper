@@ -32,6 +32,41 @@ class LLMService:
             make sure the output message to be written with the sentence that have (MUST be written) message and be free in any format.
             Explain your reasoning step by step before providing the answer.
         """
+
+        try:
+            response = fireworks.client.Completion.create(
+                model="accounts/fireworks/models/deepseek-v3",
+                prompt=prompt,
+                max_tokens=100000,
+                temperature=0.3,
+            )
+            
+            if response.choices and response.choices[0].text.strip():
+                return response.choices[0].text.strip()
+            else:
+                return raw_text
+        except Exception as e:
+            raise Exception(f"LLM processing failed: {str(e)}")
+        
+
+    @staticmethod
+    def process_text_data(raw_text, html_text, api_key):
+        """Process voice transcription with LLM."""
+        fireworks.client.api_key = api_key
+        
+        prompt = f"""
+            1. Fill Patient Features: (MUST be written)  
+            - Fill the features in {html_text} using the diagnosis description in {raw_text}.  
+            - Assign NULL to any feature not mentioned in {raw_text}.  
+            - Add the appropriate ICD-10 code based on the diagnosis.  
+
+            2. Reasoning: (MUST be written)  
+            - Explain step-by-step why each feature is filled with the corresponding value.  
+            - Include reasoning for assigning NULL values or inferring ICD-10 codes.  
+
+            Strictly follow the structure and ensure the output is clear and concise. 
+            (1. Fill Patient Features: (MUST be written) and 2. Reasoning: (MUST be written) must be written in the output)
+        """
         
         try:
             response = fireworks.client.Completion.create(
@@ -62,13 +97,11 @@ class LLMService:
         cleaned_html = soup.prettify()
         
         prompt = f"""
-            HTML input: {cleaned_html}
-            DeepSeek-V3, please analyze the provided HTML -clincal sheets- input and 
-            extract all the key features related to the patient in that HTML format. 
-            Ensure the extracted information is structured in a clear and concise format,
-            such as a JSON object.
-            make sure that JSON output is not nested JSON is just key (description of key) to value (text or number or boolean).
-            make sure that the key value output to be related to medical domain as you can.
+            DeepSeek-V3, analyze the provided HTML input (`{cleaned_html}`) which contains clinical sheets.
+            Extract all key features related to the patient and structure them into a flat JSON object.
+            Ensure the JSON object is non-nested, with keys describing medical features and values as text,
+            numbers, or booleans. Exclude any non-medical or irrelevant information.
+            Provide the output in a clear and concise format.
         """
         
         try:
