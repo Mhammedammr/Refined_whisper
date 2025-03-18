@@ -12,6 +12,9 @@ class Config:
     # API Keys
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
+
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:7987@localhost:5432/Voice_Recognition")
+
     
     # Create upload folder if it doesn't exist
     if not os.path.exists(UPLOAD_FOLDER):
